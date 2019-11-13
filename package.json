@@ -3,15 +3,25 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "react": "^16.11.0",
-    "react-dom": "^16.11.0",
-    "react-scripts": "3.2.0"
+    "@sketchpixy/rubix": "2.9.18",
+    "bless": "3.0.3",
+    "ccxt": "1.19.37",
+    "node-sass": "4.13.0",
+    "npm": "6.13.0",
+    "react": "^15.3.0",
+    "react-dom": "^15.3.0",
+    "react-hot-loader": "^3.0.0-beta.2",
+    "react-router": "^3.0.0-alpha.3",
+    "react-router-dom": "5.1.2",
+    "react-scripts": "3.2.0",
+    "react-toastify": "5.4.1"
   },
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "sass": "node-sass --include-path ./node_modules --include-path -r ./public sass/main.scss src/main.css -o src/ && blessc -f src/sass/main.css"
   },
   "eslintConfig": {
     "extends": "react-app"
