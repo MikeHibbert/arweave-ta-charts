@@ -1,19 +1,21 @@
-import React, { Component } from 'react';
-import logo from './logo.svg';
-import './App.css';
-
-import './sass/main.css';
-import { Grid, Row, Col, MainContainer } from '@sketchpixy/rubix';
+import React, {Component} from 'react';
+import { Route, Redirect, withRouter } from 'react-router-dom';
 import { ToastContainer, toast } from 'react-toastify';
-import Sidebar from './components/Sidebar/SideBar';
-import Header from './components/Header/Header';
-import Footer from './components/Footer/Footer';
+import PageHeader from './components/PageHeader/PageHeader';
+import Menu from './components/MainMenu/Menu';
+import Login from './components/auth/Login';
+import Logout from './components/auth/Logout';
+import HomePage from './containers/Home/HomePage';
+import ChartingPage from './containers/Charting/ChartingPage';
+import arweave from './arweave-config';
+import './App.css';
+import 'react-toastify/dist/ReactToastify.css';
 
 class App extends Component {
   state = {
     isAuthenticated: null,
     contentToggled: false,
-    contentStyle: null,
+    contentStyle: {marginLeft: '0px'},
     balance: 0,
     wallet_address: null
   }
@@ -23,6 +25,8 @@ class App extends Component {
 
     this.toggleContent.bind(this);
     this.explandContentArea.bind(this);
+    this.addErrorAlert.bind(this);
+    this.addSuccessAlert.bind(this);
   }
 
   toggleContent() {
@@ -74,7 +78,33 @@ class App extends Component {
         });   
     }     
   }
-  
+
+  setWalletAddress(wallet_address_files) {
+      const that = this;
+
+      const reader = new FileReader();
+      reader.onload = function() {
+          const text = reader.result;
+          const jwk = JSON.parse(text);
+
+          arweave.wallets.jwkToAddress(jwk).then((wallet_address) => {                
+              that.setState({wallet_address: wallet_address, jwk: jwk});
+              sessionStorage.setItem('AR_Wallet', wallet_address);
+              sessionStorage.setItem('AR_jwk', JSON.stringify(jwk));
+          
+              that.loadWallet(wallet_address);
+
+              that.setState({isAuthenticated: true});
+              sessionStorage.setItem('isAuthenticated', true);
+
+              that.addSuccessAlert("You have successfully connected.");
+          });
+          
+      }
+      reader.readAsText(wallet_address_files[0]);
+
+  }
+
   addSuccessAlert(message)  {
     toast(message, { type: toast.TYPE.SUCCESS });     
   }
@@ -84,62 +114,70 @@ class App extends Component {
   }
 
   disconnectWallet() {
-    sessionStorage.removeItem('AR_Wallet');
-    sessionStorage.removeItem('AR_jwk');
-    sessionStorage.removeItem('isAuthenticated');
-    this.setState({isAuthenticated: false, wallet_address: null, jwk: null, balance: 0});
+      sessionStorage.removeItem('AR_Wallet');
+      sessionStorage.removeItem('AR_jwk');
+      sessionStorage.removeItem('isAuthenticated');
+      sessionStorage.removeItem('exchange');
+      sessionStorage.removeItem('coinpair');
 
-    this.addSuccessAlert("Your wallet is now disconnected");
-  } 
+      this.setState({isAuthenticated: false, wallet_address: null, jwk: null, balance: 0});
 
-  setWalletAddress(wallet_address_files) {
-    const that = this;
-
-    const reader = new FileReader();
-    reader.onload = function() {
-        const text = reader.result;
-        const jwk = JSON.parse(text);
-
-        arweave.wallets.jwkToAddress(jwk).then((wallet_address) => {                
-            that.setState({wallet_address: wallet_address, jwk: jwk});
-            sessionStorage.setItem('AR_Wallet', wallet_address);
-            sessionStorage.setItem('AR_jwk', JSON.stringify(jwk));
-        
-            that.loadWallet(wallet_address);
-
-            that.setState({isAuthenticated: true});
-            sessionStorage.setItem('isAuthenticated', true);
-
-            that.addSuccessAlert("You have successfully connected.");
-        });
-        
-    }
-    reader.readAsText(wallet_address_files[0]);
-
+      this.addSuccessAlert("Your wallet is now disconnected");
   }
 
   render() {
-    let routes = [
+    let header = (
+      <div>
+      <aside id="aside">
+        <Menu {...this.props}/>
+      </aside>
+      <header id="header">
+        <PageHeader 
+          isAuthenticated={this.state.isAuthenticated} 
+          history={this.props.history} 
+          current_balance={this.state.balance}
+          wallet_address={this.state.wallet_address}
+          onToggleContenArea={this.toggleContent.bind(this)}
+          />
+      </header>
+      </div>
+    );
 
+    let routes = [
+      <Route key='home' path="/" exact component={() => <HomePage wallet_address={this.state.wallet_address} jwk={this.state.jwk} />} />,
+      <Route key='charts' path="/charts" exact component={() => <ChartingPage addErrorAlert={this.addErrorAlert} wallet_address={this.state.wallet_address} jwk={this.state.jwk} />} />,
+,
+      <Route key='logout' path="/logout" exact component={() => <Logout onLogout={this.disconnectWallet.bind(this)} explandContentArea={() => this.explandContentArea} />} />
     ];
+
+    if(!this.state.isAuthenticated) {
+      routes = [
+        <Route key='login' path="/login" exact component={() => <Login explandContentArea={() => this.explandContentArea} setWalletAddress={this.setWalletAddress.bind(this)} />} />,
+      ];
+      if(this.props.location !== '/login') routes.push(<Redirect key='redirect-to-login' to='/login' />);
+      header = null;
+    }
+
+    if(this.state.isAuthenticated && this.props.location.pathname === '/login') {
+      routes = (
+        <>
+        <Redirect to='/' />
+        </>
+      );
+    }
+
     return (
-      <MainContainer {...this.props}>
-          <Sidebar />
-          <Header />
-          <div id='body'>
-            <ToastContainer />
-            <Grid>
-              <Row>
-                <Col xs={12}>
-                  {routes}
-                </Col>
-              </Row>
-            </Grid>
-          </div>
-          <Footer />
-        </MainContainer>
+      
+      <div id="wrapper" className="clearfix">
+        <ToastContainer />
+        {header}
+        <section id="middle" style={this.state.contentStyle}>
+        {routes}
+        </section>
+      </div>
     );
   }
+  
 }
 
-export default App;
+export default withRouter(App);

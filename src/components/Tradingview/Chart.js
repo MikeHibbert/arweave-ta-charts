@@ -1,12 +1,10 @@
 import * as React from 'react';
 import { widget } from '../../charting_library/charting_library.min';
-import instance from '../../api-config';
 import { timeParse } from "d3-time-format";
 import { format } from "d3-format";
-import * as actions from '../../store/actions/index';
-import * as ccxt from 'ccxt';
-import { connect } from 'react-redux';
 import backendHost from '../../backend_host';
+import * as ccxt from 'ccxt';
+import './Tradingview.css';
 
 function getLanguageFromURL() {
 	const regex = new RegExp('[\\?&]lang=([^&#]*)');
@@ -54,27 +52,26 @@ const flipValue = (value, center_point) => {
 	return parseFloat(satoshiFormat(result));
 }
 
-const history = {};
+const candle_history = {};
 
 class SaveLoadAdapter {
-	// getAllCharts() {
-	// 	console.log(this);
-	// }
-	//
-	// removeChart(chartId)  {
-	// 	console.log("removechart: " + chartId);
-	// }
-	//
-	// saveChart(chartData) {
-	// 	console.log("saveChart: " + chartData);
-	// }
-	//
-	// getChartContent(chartId) {
-	// 	console.log("getChartContent: " + chartId);
-	// }
+	getAllCharts() {
+		console.log(this);
+	}
+	
+	removeChart(chartId)  {
+		console.log("removechart: " + chartId);
+	}
+	
+	saveChart(chartData) {
+		console.log("saveChart: " + chartData);
+	}
+	
+	getChartContent(chartId) {
+		console.log("getChartContent: " + chartId);
+	}
 	getAllStudyTemplates() {
 		console.log("getAllStudyTemplates");
-		return instance.get('/tv/chartstorage/1.1/');
 	}
 	removeStudyTemplate(studyTemplateInfo) {
 		console.log("removeStudyTemplate: " + studyTemplateInfo);
@@ -95,68 +92,70 @@ class DataFeed {
 	centre_point: 0;
 
 	constructor(props) {
-    this.exchange = props.exchange;
+		this.exchange = props.exchange;
 		this.props = props;
 		if(this.props.websocket !== undefined) {
 			this.ws = this.props.websocket;
 		}
-  }
+	}
 
 	onReady(callback) {
 		setTimeout(() => {
 			callback(
 				{
-	        supported_resolutions: ["5", "15", "60", "240"],
-	        supports_group_request: false,
-	        supports_marks: false,
-	        supports_search: false,
-					supports_time: true,
-	        supports_timescale_marks: false,
-					exchanges: ['BINANCE'],
-					symbol_types: ['bitcoin']
-	    	}
+					supported_resolutions: ["1", "5", "15", "30", "60", "240", "1D", "1W", "1M"],
+					supports_group_request: false,
+					supports_marks: false,
+					supports_search: false,
+							supports_time: true,
+					supports_timescale_marks: false,
+							exchanges: ['BINANCE'],
+							symbol_types: ['bitcoin']
+				}
 			);
 		}, 0);
 	}
 
-	searchSymbols(userInput, exchange, symbolType, onResultReadyCallback) {
-		//console.log(userInput, exchange, symbolType, onResultReadyCallback);
-	}
+	searchSymbols(userInput, exchange, symbolType, onResultReadyCallback) {}
 
 	resolveSymbol(symbolName, onSymbolResolvedCallback, onResolveErrorCallback) {
-		//console.log(symbolName, onSymbolResolvedCallback, onResolveErrorCallback);
 		setTimeout(() => {
 			onSymbolResolvedCallback(
 				{
 	        name: symbolName,
 					description: '',
 	        type: "bitcoin",
-					supported_resolutions: ["5", "15", "60", "240"],
+					supported_resolutions: ["1", "5", "15", "30", "60", "240", "1D", "1W", "1M"],
 					data_status: 'streaming',
 					session: '24x7',
 					minmov: 1,
 					pricescale: 100000000,
 					has_intraday: true,
-   				intraday_multipliers: ['5', '15', '60', "240"],
+   				// intraday_multipliers: ['5', '15', '60', "240"],
 	    	}
 			);
 		}, 0);
 	}
 
 	async getBars(symbolInfo, resolution, from, to, onHistoryCallback, onErrorCallback, firstDataRequest) {
-		// console.log(symbolInfo, resolution, from, to);
-		let to_timestamp=to * 1000;
+		
+		let to_timestamp = undefined;
+
 		const that = this;
+
+		const timeBar = candle_history[symbolInfo.name.replace('1/','').replace('/','') + "_" + resolution];
 
 		if(firstDataRequest) {
 			to_timestamp=undefined;
-			// console.log("first time");
-		}
+		} else {
+			
 
-		const exchange_class_names = {
-			binance: 'binance',
-			hitbtc: 'hitbtc2',
-			bittrex: 'bittrex'
+			if(timeBar) {				
+				const d = new Date(timeBar.firstBar[0]);
+				d.setDate(d.getDate() - 7);
+				d.setMilliseconds(0);
+				to_timestamp = d.getTime();
+			}
 		}
 
 		const timescales = {
@@ -164,11 +163,12 @@ class DataFeed {
 			60: "1h",
 			5: "5m",
 			15: "15m",
+			"1D": "1d",
+			"M": "1M",
+			"D": "1w"
 		};
-		// console.log(this.props.exchange);
-		const exchange_class_name = exchange_class_names[this.props.exchange]
 
-		const exchange_class = ccxt[exchange_class_name];
+		const exchange_class = ccxt[this.props.exchange];
 
 		const exchange_instance = new exchange_class();
 		exchange_instance.proxy = backendHost + '/api/proxy/';
@@ -180,9 +180,13 @@ class DataFeed {
 			symbol_name = symbol_name.replace('1/', '');
 		}
 
-		const candles = await exchange_instance.fetchOHLCV(symbol_name, timescales[resolution], to_timestamp);
+		let candles = await exchange_instance.fetchOHLCV(symbol_name, timescales[resolution], to_timestamp);
 
-		let final_candles = candles.map(c => {
+		if(!firstDataRequest) { 
+			candles = candles.filter((candle) => candle[0] < timeBar.firstBar[0]);
+		}
+
+		const final_candles = candles.map(c => {
 			return {
 				time: c[0],
 				open: c[1],
@@ -200,14 +204,19 @@ class DataFeed {
 		}
 
 		// console.log(center_point);
-		this.stream = createStream(resolution, this.flip_candles, center_point);
+		// this.stream = createStream(resolution, this.flip_candles, center_point);
 
-		if(firstDataRequest) {
-			const lastBar = final_candles[final_candles.length-1];
-			// console.log(resolution, lastBar);
-			const historic_bar = {lastBar: lastBar};
+		if(candles.length > 0) {
+			const firstBar = candles[0];
+			const lastBar = candles[candles.length-1];
+
+			const startDate = new Date(firstBar[0]);
+			const endDate = new Date(lastBar[0]);
+
+			console.log(startDate + " to " + endDate);
+			const historic_bar = {lastBar: lastBar, firstBar: firstBar};
 			// console.log(historic_bar);
-			history[symbolInfo.name.replace('1/','').replace('/','') + "_" + resolution] = historic_bar;
+			candle_history[symbolInfo.name.replace('1/','').replace('/','') + "_" + resolution] = historic_bar;
 		}
 
 		if(final_candles.length) {
@@ -243,12 +252,12 @@ class DataFeed {
 
 	subscribeBars(symbolInfo, resolution, onRealtimeCallback, subscriberUID, onResetCacheNeededCallback) {
 		//if(!this.flip_candles) {
-			this.stream.subscribeBars(this, symbolInfo, this.exchange, resolution,onRealtimeCallback,subscriberUID,onResetCacheNeededCallback);
+			// this.stream.subscribeBars(this, symbolInfo, this.exchange, resolution,onRealtimeCallback,subscriberUID,onResetCacheNeededCallback);
 		//}
 	}
 
 	unsubscribeBars(subscriberUID)  {
-		this.stream.unsubscribeBars(subscriberUID);
+		// this.stream.unsubscribeBars(subscriberUID);
 	}
 
 	calculateHistoryDepth(resolution, resolutionBack, intervalBack) {
@@ -300,7 +309,7 @@ const createStream = function(resolution, flip, center_point) {
 	          channelString,
 	          subscribeUID,
 	          resolution,
-	          lastBar: history[symbolInfo.name.replace('1/','').replace('/','') + "_" + resolution].lastBar,
+	          lastBar: candle_history[symbolInfo.name.replace('1/','').replace('/','') + "_" + resolution].lastBar,
 	          listener: onRealtimeCallback,
 	      };
 	      _subs.push(newSub);
@@ -351,11 +360,11 @@ const createStream = function(resolution, flip, center_point) {
 					this.ws.close();
 				}
 				if(exchange) {
-					if(datafeed.ws !== undefined) {
-						this.ws = datafeed.ws;
-					} else {
-						this.ws = this.setupWebsocket(url);
-					}
+					// if(datafeed.ws !== undefined) {
+					// 	this.ws = datafeed.ws;
+					// } else {
+					// 	this.ws = this.setupWebsocket(url);
+					// }
 
 				}
 	  },
@@ -571,12 +580,13 @@ class TradingViewChart extends React.PureComponent {
 		],
 		debug: false,
 		favorites: {
-        	intervals: ["5", "15", "60", "240"]
+        	intervals: ["5", "15", "60", "240", ""]
     	}
 	};
 
 	state = {
-		account: null
+		account: null,
+		interval: "60"
 	}
 
 	tvWidget = null;
@@ -604,8 +614,8 @@ class TradingViewChart extends React.PureComponent {
 			symbol: this.props.symbol,
 			// BEWARE: no trailing slash is expected in feed URL
 			datafeed: new DataFeed(this.props),
-			save_load_adapter: new SaveLoadAdapter(this.props),
-			interval: this.props.interval,
+			// save_load_adapter: new SaveLoadAdapter(this.props),
+			interval: this.state.interval,
 			container_id: this.props.containerId,
 			library_path: this.props.libraryPath,
 
@@ -683,29 +693,29 @@ class TradingViewChart extends React.PureComponent {
 			tvWidget.chart().createStudy('Moving Average Exponential', false, true, [60], null, {"%d.color" : "#FFF000"});
 
 			console.log(that.props.account);
-			if(that.props.account !== null && that.props.account !== {}) {
+			// if(that.props.account !== null && that.props.account !== {}) {
 
-				(async () => {
-					const account_info = that.props.account.exchanges[0];
-					const exchange = ccxt.binance({
-						apiKey: account_info.api_key,
-						apiSecret: account_info.api_secret
-					});
+			// 	(async () => {
+			// 		const account_info = that.props.account.exchanges[0];
+			// 		const exchange = ccxt.binance({
+			// 			apiKey: account_info.api_key,
+			// 			apiSecret: account_info.api_secret
+			// 		});
 
-					const trades = await exchange.fetchMyTrades(that.coin_pair)
-					tvWidget.chart().createShape({time: Math.floor(new Date().valueOf() / 1000), price: 0.00242},
-						{
-							shape: "price_label",
-							lock: true,
-							disableSelection: true,
-							disableSave: true,
-							disableUndo: true,
-							overrides: { color: "#00FF00" }
-						}
-					);
-				});
+			// 		const trades = await exchange.fetchMyTrades(that.coin_pair)
+			// 		tvWidget.chart().createShape({time: Math.floor(new Date().valueOf() / 1000), price: 0.00242},
+			// 			{
+			// 				shape: "price_label",
+			// 				lock: true,
+			// 				disableSelection: true,
+			// 				disableSave: true,
+			// 				disableUndo: true,
+			// 				overrides: { color: "#00FF00" }
+			// 			}
+			// 		);
+			// 	});
 				
-			}
+			// }
 			
 			
 
@@ -737,16 +747,4 @@ class TradingViewChart extends React.PureComponent {
 	}
 }
 
-const mapDispatchToProps = dispatch => {
-  return {
-    onChangeCoinpair: (coin_pair) => dispatch(actions.setCoinPair(coin_pair))
-  }
-}
-
-const mapStateToProps = state => {
-  return {
-	coin_pair: state.app.coin_pair
-  };
-};
-
-export default connect(mapStateToProps, mapDispatchToProps)(TradingViewChart);
+export default TradingViewChart;
