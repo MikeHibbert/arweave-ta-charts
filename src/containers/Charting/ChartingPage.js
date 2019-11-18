@@ -2,12 +2,20 @@ import React, { Component } from 'react';
 import TradingViewChart from '../../components/Tradingview/Chart';
 import * as ccxt from 'ccxt';
 import backendHost from '../../backend_host';
+import checkPendingTransactions from '../../helpers';
 
 class ChartingPage extends Component {
     state = {
         exchange: "binance",
         coinpair: "BTC/USDT",
         coinpairs: []
+    }
+
+    interval = null;
+
+    constructor(props) {
+        super(props);
+        this.setPendingCount.bind(this);
     }
 
     componentDidMount() {
@@ -23,6 +31,14 @@ class ChartingPage extends Component {
             this.getCoinpairsForExhange("binance");
         }
         
+        const that = this;
+        this.interval = setTimeout(function() {
+            checkPendingTransactions(that.setPendingCount);
+        }, 1000);
+    }
+
+    componentWillUnmount() {
+        clearInterval(this.interval);
     }
 
     onChangeExchange(event) {
@@ -67,6 +83,10 @@ class ChartingPage extends Component {
         }
     }
 
+    setPendingCount(count)  {
+        this.setState({pending_count: count});
+    }
+
     render() {
         let exchanges = ccxt.exchanges.map((exchange_name) => {
             const ex = new ccxt[exchange_name];
@@ -84,15 +104,23 @@ class ChartingPage extends Component {
                 return <option key={coinpair.symbol} defaultValue={coinpair.id}>{coinpair.symbol}</option>;
             });
 
-            tradingview_chart = <TradingViewChart exchange={this.state.exchange} symbol={this.state.coinpair} />;
+            tradingview_chart = <TradingViewChart {...this.props} exchange={this.state.exchange} symbol={this.state.coinpair} />;
         }
+
         
+        
+
+        let pending = null;
+        if(this.state.pending_count > 0) {
+            pending = <span>{this.state.pending} pending operations</span>
+        }
         return (<div>
+            
             <div className="col-md-12 padding-20">
                 <section className="panel panel-default">
                     <header className="panel-heading">
                         <span className="panel-title elipsis">
-                            <i className="fa fa-line-chart"></i> Crypto chart for {this.state.coinpair}
+                            <i className="fa fa-line-chart"></i> Crypto chart for {this.state.coinpair} {pending}
                         </span>
                         <label className="pull-right">
                             <select 

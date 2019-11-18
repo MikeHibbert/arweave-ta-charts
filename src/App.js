@@ -145,7 +145,12 @@ class App extends Component {
 
     let routes = [
       <Route key='home' path="/" exact component={() => <HomePage wallet_address={this.state.wallet_address} jwk={this.state.jwk} />} />,
-      <Route key='charts' path="/charts" exact component={() => <ChartingPage addErrorAlert={this.addErrorAlert} wallet_address={this.state.wallet_address} jwk={this.state.jwk} />} />,
+      <Route key='charts' path="/charts" exact component={() => <ChartingPage 
+                                                                    addErrorAlert={this.addErrorAlert} 
+                                                                    addSuccessAlert={this.addSuccessAlert} 
+                                                                    wallet_address={this.state.wallet_address} 
+                                                                    {...this.props}
+                                                                    jwk={this.state.jwk} />} />,
 ,
       <Route key='logout' path="/logout" exact component={() => <Logout onLogout={this.disconnectWallet.bind(this)} explandContentArea={() => this.explandContentArea} />} />
     ];

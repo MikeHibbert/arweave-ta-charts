@@ -2,13 +2,13 @@
 			#005D4C
  **************************************************************** **/
 	::selection {
-		background: #192F24;
+		background: #4c2c92;
 	}
 	::-moz-selection {
-		background: #192F24; /* Firefox */
+		background: #4c2c92; /* Firefox */
 	}
 	::-webkit-selection {
-		background: #192F24; /* Safari */
+		background: #4c2c92; /* Safari */
 	}
 
 	#aside nav ul li a:active,
@@ -31,23 +31,23 @@
 	#aside .logo,
 	body.min #asidesize,
 	#aside, #asidebg {
-		background-color: #005D4C;
+		background-color: #4c2c92;
 	}
 	
 	body.min #aside ul.nav>li:hover:before {
-		border-right-color: #005D4C;
+		border-right-color: #4c2c92;
 	}
 
 	.panel>.panel-heading strong {
-		color:#192F24;
+		color:#4c2c92;
 	}
 	
 	.btn-primary {
-		border-color:#192F24;
+		border-color:#4c2c92;
 	}
 
 	.popular {
-		border-color:#005D4C !important;
+		border-color:#4c2c92 !important;
 	}
 	
 	/**
@@ -56,11 +56,11 @@
 	.btn-primary,
 	.alert-theme-color,
 	.panel-primary>.panel-heading {
-		background-color: #192F24 !important;
+		background-color: #4c2c92!important;
 	}
 	.panel-primary,
 	.panel-primary>.panel-heading {
-		border-color: #192F24 !important;
+		border-color: #4c2c92 !important;
 	}
 	
 	@media only screen and (min-width: 768px) {

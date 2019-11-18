@@ -4,6 +4,7 @@ import arweave from '../../arweave-config';
 import settings from '../../app-config';
 import Spinner from '../../components/Spinner/Spinner';
 import Idea from '../../components/Idea/Idea';
+import { stat } from 'fs';
 
 class HomePage extends Component {
 
@@ -12,7 +13,8 @@ class HomePage extends Component {
     measure_enabled: false,
     account: null,
     my_ideas: [],
-    latest_ideas: []
+    latest_ideas: [],
+    loading: true
   }
 
   async componentDidMount() {
@@ -39,53 +41,75 @@ class HomePage extends Component {
             expr1: "app",
             expr2: settings.APP_TAG
         },
-        "latest_ideas"
+        "latest_ideas",
+        true
     )
   }  
 
-  async arqlSearchIdeas(search, state_name) {
+  async arqlSearchIdeas(search, state_name, ends_process=false) {
     const txids = await arweave.arql(search);
 
-    const that = this;
-    const ideas = [];
+    if(txids.length === 0) {
+        if(ends_process) {
+            this.setState({loading: false});
+        }
+    }
 
-    for(let i in txids) {
-        const txid = txids[i];
+    const ideas = await this.getIdeas(txids);
+
+    const state = {};
+
+    state[state_name] = ideas;
+    
+    if(ends_process) {
+      state['loading'] = false;  
+    } 
+    
+    this.setState(state);
+  }
+
+  async getIdeas(txids) {
+    const ideas = await Promise.all(txids.map(async txid => {
+        const transaction = await arweave.transactions.get(txid);
+        const tags = transaction.get('tags');
         
-        arweave.transactions.get(txid).then(transaction => {
-            const tags = transaction.get('tags');
+        const tx = {txid: txid};
+
+        for(let i in tags) {
+            const tag = tags[i];
             
-            const doc = {txid: txid};
+            const name = tag.get('name', {decode: true, string: true}).replace('-', '_');
+            let value = tag.get('value', {decode: true, string: true});
 
-            for(let i in tags) {
-                const tag = tags[i];
-                
-                const name = tag.get('name', {decode: true, string: true});
-                let value = tag.get('value', {decode: true, string: true});
+            if(name === "created") {
+                value = parseInt(value);
+            }
 
-                if(name === "created") {
-                    value = parseInt(value);
-                }
+            tx[name] = value;
+        }
 
-                doc[name] = value;
-            };
+        if(tx.data_type === 'tv-chart-data') {
+            return tx;
+        } 
+        
+        return null;    
+    }));
 
-            ideas.push(doc);
-
-        }).finally((response) => {    
-            const final_ideas = ideas.sort((a, b) => a.created > b.created);
-            that.setState({state_name: final_ideas});
-        });
-    }   
+    return ideas.filter((idea) => { return idea !== null});
   }
 
   render() {
-    let my_ideas = [<Spinner key={1} />];
-    let latest_ideas = [<Spinner key={2} />];
+    let my_ideas = [];
+    let latest_ideas = [];
+
+    if(this.state.loading) {
+        my_ideas = [<Spinner key={1} />];
+        latest_ideas = [<Spinner key={2} />];
+    }
 
     if(this.state.my_ideas.length > 0) {
         my_ideas = this.state.my_ideas.map((idea) => {
-            return <Idea key={idea.created} props={idea} />
+            return <Idea key={idea.created} {...idea} />
         });
     }
 
@@ -94,7 +118,7 @@ class HomePage extends Component {
 
     if(this.state.latest_ideas.length > 0) {
         latest_ideas = this.state.latest_ideas.map((idea) => {
-            return idea.created > a_week_ago ? <Idea key={idea.created} props={idea} /> : null;
+            return idea.created > a_week_ago ? <Idea key={idea.created} {...idea} /> : null;
         });
 
         latest_ideas = latest_ideas.filter((idea) => { return idea != null});
@@ -111,7 +135,7 @@ class HomePage extends Component {
                         <i className="fa fa-info-circle"></i> My Ideas
                     </h2>
                 </header>
-                <div className="panel-body noradius padding-10">
+                <div className="panel-body noradius padding-10" style={{minHeight: "700px"}}>
                     <div className="row profile-activity">
                         {my_ideas}
                     </div>
@@ -125,7 +149,7 @@ class HomePage extends Component {
                         <i className="fa fa-rss"></i> Latest Ideas 
                     </h2>
                 </header>
-                <div className="panel-body noradius padding-10">
+                <div className="panel-body noradius padding-10" style={{minHeight: "700px"}}>
                     <div className="row profile-activity">
                         {latest_ideas}
                     </div>

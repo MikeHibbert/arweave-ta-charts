@@ -1,9 +1,10 @@
 import * as React from 'react';
 import { widget } from '../../charting_library/charting_library.min';
-import { timeParse } from "d3-time-format";
 import { format } from "d3-format";
 import backendHost from '../../backend_host';
 import * as ccxt from 'ccxt';
+import arweave from '../../arweave-config';
+import settings from '../../app-config';
 import './Tradingview.css';
 
 function getLanguageFromURL() {
@@ -55,33 +56,190 @@ const flipValue = (value, center_point) => {
 const candle_history = {};
 
 class SaveLoadAdapter {
-	getAllCharts() {
-		console.log(this);
+	props = null;
+
+	constructor(props) {
+		this.props = {...props};
+	}
+
+	async getAllCharts() {
+		const wallet_address = sessionStorage.getItem('AR_Wallet');
+		const txids = await arweave.arql({
+			op: "and",
+			expr1: {
+				op: "equals",
+				expr1: "from",
+				expr2: wallet_address
+			},
+			expr2: {
+				op: "equals",
+				expr1: "data-type",
+				expr2: 'tv-chart-data'
+			}
+		});
+
+		const charts = [];
+
+		for(let i in txids) {
+			const txid = txids[i];
+			
+			await arweave.transactions.getData(txid, {decode: true, string: true}).then(data => {
+				const chart = JSON.parse(data);
+				chart.id = JSON.parse(chart.content).publish_request_id;
+				chart.name = this.decode(chart.name);
+				charts.push(chart);
+			});
+		}   
+
+		const that = this;
+
+		return new Promise((resolve, reject) => {
+			that.charts = [...charts];
+			resolve(charts);
+		});
 	}
 	
 	removeChart(chartId)  {
-		console.log("removechart: " + chartId);
 	}
 	
-	saveChart(chartData) {
-		console.log("saveChart: " + chartData);
+	async saveChart(chartData) {
+		const jwk = JSON.parse(sessionStorage.getItem('AR_jwk'));
+
+		let transaction = await arweave.createTransaction({
+			data: JSON.stringify(chartData)
+		}, jwk);
+
+		const content = JSON.parse(chartData.content);
+
+		transaction.addTag('app', settings.APP_TAG);
+		transaction.addTag('created', new Date().getTime());
+		transaction.addTag('data-type', 'tv-chart-data');
+		transaction.addTag('exchange', this.props.exchange);
+		transaction.addTag('symbol', chartData.symbol);
+		transaction.addTag('chartId', content.publish_request_id);
+		transaction.addTag('name', content.name);
+
+		await arweave.transactions.sign(transaction, jwk);
+
+		const response = await arweave.transactions.post(transaction);
+
+		if(response.status === 200) {
+			this.props.addSuccessAlert("Your chart was successfully saved and will be mined shortly.");
+
+			this.addToPendingTransactions(transaction.id);
+
+		} else if (response.status === 400) {
+			this.props.addErrorAlert("There was a problem saving your chart.");
+			console.log("Invalid transaction!");
+		} else {
+			this.props.addErrorAlert("There was a problem saving your chart.");
+			console.log("Fatal error!");
+		} 
 	}
 	
-	getChartContent(chartId) {
-		console.log("getChartContent: " + chartId);
+	
+	async getChartContent(chartId) {
+		const charts = this.charts.filter((c) => c.id === chartId);
+
+		return charts[0].content;
 	}
-	getAllStudyTemplates() {
-		console.log("getAllStudyTemplates");
+	async getAllStudyTemplates() {
+		const wallet_address = sessionStorage.getItem('AR_Wallet');
+		const txids = await arweave.arql({
+			op: "and",
+			expr1: {
+				op: "equals",
+				expr1: "from",
+				expr2: wallet_address
+			},
+			expr2: {
+				op: "equals",
+				expr1: "data-type",
+				expr2: 'tv-study-template'
+			}
+		});
+
+		const templates = [];
+
+		for(let i in txids) {
+			const txid = txids[i];
+			
+			await arweave.transactions.getData(txid, {decode: true, string: true}).then(data => {
+				const json_data = JSON.parse(data);
+				const escaped_data = {content: json_data.content, name: this.decode(json_data.name)};
+				templates.push(escaped_data);
+			});
+		}   
+
+		const that = this;
+
+		return new Promise((resolve, reject) => {
+			that.templates = [...templates];
+			resolve(templates);
+		});
 	}
+
+	decode(str) {
+		return str.replace(/&#(\d+);/g, function(match, dec) {
+			return String.fromCharCode(dec);
+		});
+	}
+
 	removeStudyTemplate(studyTemplateInfo) {
 		console.log("removeStudyTemplate: " + studyTemplateInfo);
+		
 	}
-	saveStudyTemplate(studyTemplateData) {
+	async saveStudyTemplate(studyTemplateData) {
 		console.log("saveStudyTemplate: " + studyTemplateData);
+
+		const jwk = JSON.parse(sessionStorage.getItem('AR_jwk'));
+
+		let transaction = await arweave.createTransaction({
+			data: JSON.stringify(studyTemplateData)
+		}, jwk);
+
+		const content = JSON.parse(studyTemplateData.content);
+
+		transaction.addTag('app', settings.APP_TAG);
+		transaction.addTag('created', new Date().getTime());
+		transaction.addTag('data-type', 'tv-study-template');
+		transaction.addTag('name', content.name);
+
+		await arweave.transactions.sign(transaction, jwk);
+
+		const response = await arweave.transactions.post(transaction);
+
+		if(response.status === 200) {
+			this.props.addSuccessAlert("Your template was successfully saved and will be mined shortly.");
+
+			this.addToPendingTransactions(transaction.id);
+
+		} else if (response.status === 400) {
+			this.props.addErrorAlert("There was a problem saving your template.");
+			console.log("Invalid transaction!");
+		} else {
+			this.props.addErrorAlert("There was a problem saving your template.");
+			console.log("Fatal error!");
+		} 
 	}
-	getStudyTemplateContent(studyTemplateInfo) {
-		console.log("getStudyTemplateContent: " + studyTemplateInfo);
+	async getStudyTemplateContent(studyTemplateInfo) {
+		// console.log("getStudyTemplateContent: " + studyTemplateInfo);
+		const templates = this.templates.filter((t) => t.name === studyTemplateInfo.name);
+		return templates[0].content;
 	}
+
+	addToPendingTransactions(txid) {
+        let pending_txids = JSON.parse(sessionStorage.getItem('pending_txids'));
+
+        if(!pending_txids) {
+            pending_txids = [];
+        }
+
+        pending_txids.push(txid);
+
+        sessionStorage.removeItem('pending_txids');
+        sessionStorage.setItem('pending_txids', JSON.stringify(pending_txids));
+    }
 }
 
 class DataFeed {
@@ -152,7 +310,7 @@ class DataFeed {
 
 			if(timeBar) {				
 				const d = new Date(timeBar.firstBar[0]);
-				d.setDate(d.getDate() - 7);
+				d.setDate(d.getDate() - 3);
 				d.setMilliseconds(0);
 				to_timestamp = d.getTime();
 			}
@@ -609,12 +767,12 @@ class TradingViewChart extends React.PureComponent {
 
 	
 
-	createWidget() {
+	async createWidget() {
 		const widgetOptions = {
 			symbol: this.props.symbol,
 			// BEWARE: no trailing slash is expected in feed URL
 			datafeed: new DataFeed(this.props),
-			// save_load_adapter: new SaveLoadAdapter(this.props),
+			save_load_adapter: new SaveLoadAdapter(this.props),
 			interval: this.state.interval,
 			container_id: this.props.containerId,
 			library_path: this.props.libraryPath,
@@ -632,100 +790,20 @@ class TradingViewChart extends React.PureComponent {
 			tvWidget: null
 		};
 
-		if(this.ws) {
-			this.ws.close();
-		}
 		const tvWidget = new widget(widgetOptions);
 		this.tvWidget = tvWidget;
 		widgetOptions.tvWidget = tvWidget;
 
 		var that = this;
 
+		let chartid = null;
+		if(this.props.location.hasOwnProperty('chartid')) {
+			await tvWidget.chart().getAllCharts();
+			await tvWidget.chart().getChartContent(this.props.location.chartid);
+		}
+
 		tvWidget.onChartReady(() => {
-			const buy_btn = tvWidget.createButton()
-				.attr('title', 'Click to add a buy point')
-				.addClass('apply-common-tooltip')
-				.on('click', () => {
-					var order = tvWidget.chart().createPositionLine()
-						.setText('Buy ' + this.props.symbol)
-						.setLineLength(3)
-						.setLineStyle(0)
-						.setQuantity("0.0823 " + this.props.symbol);
 
-					order.setPrice(this.datafeed.history[this.props.symbol + "_" + this.props.interval.replace('m','').replace('h', '')].close);
-				});
-
-			buy_btn[0].innerHTML = 'BUY';
-
-			const sell_btn = tvWidget.createButton()
-				.attr('title', 'Click to add a buy point')
-				.addClass('apply-common-tooltip')
-				.on('click', () => {
-					var order = tvWidget.chart().createOrderLine()
-						.setText('Sell ' + this.props.symbol)
-						.setLineLength(3)
-						.setLineStyle(0)
-						.setQuantity("0.0823 " + this.props.symbol);
-
-					order.setPrice(this.datafeed.history[this.props.symbol].close);
-				});
-
-			sell_btn[0].innerHTML = 'SELL';
-
-
-			// tvWidget.chart().removeAllStudies();
-			tvWidget.chart().createStudy('Bollinger Bands', false, false);
-			tvWidget.chart().createStudy('Moving Average', false, true, [8], null, {"%d.color" : "#FF0000"});
-			tvWidget.chart().createStudy('Moving Average', false, true, [200], null, {"%d.color" : "#0000FF"});
-			tvWidget.chart().createStudy('Moving Average', false, true, [314], null, {"%d.color" : "#FF0000"});
-			tvWidget.chart().createStudy('Moving Average', false, true, [98], null, {"%d.color" : "#FF0000"});
-			tvWidget.chart().createStudy('Moving Average', false, true, [466], null, {"%d.color" : "#FF0000"});
-			tvWidget.chart().createStudy('Moving Average', false, true, [506], null, {"%d.color" : "#FF0000"});
-			tvWidget.chart().createStudy('Moving Average', false, true, [804], null, {"%d.color" : "#FF0000"});
-			tvWidget.chart().createStudy('Moving Average Exponential', false, true, [8], null, {"%d.color" : "#FFF000"});
-			tvWidget.chart().createStudy('Moving Average Exponential', false, true, [13], null, {"%d.color" : "#FFF000"});
-			tvWidget.chart().createStudy('Moving Average Exponential', false, true, [16], null, {"%d.color" : "#FFF000"});
-			tvWidget.chart().createStudy('Moving Average Exponential', false, true, [21], null, {"%d.color" : "#FFF000"});
-			tvWidget.chart().createStudy('Moving Average Exponential', false, true, [28], null, {"%d.color" : "#FFF000"});
-			tvWidget.chart().createStudy('Moving Average Exponential', false, true, [35], null, {"%d.color" : "#FFF000"});
-			tvWidget.chart().createStudy('Moving Average Exponential', false, true, [42], null, {"%d.color" : "#FFF000"});
-			tvWidget.chart().createStudy('Moving Average Exponential', false, true, [50], null, {"%d.color" : "#FFF000"});
-			tvWidget.chart().createStudy('Moving Average Exponential', false, true, [60], null, {"%d.color" : "#FFF000"});
-
-			console.log(that.props.account);
-			// if(that.props.account !== null && that.props.account !== {}) {
-
-			// 	(async () => {
-			// 		const account_info = that.props.account.exchanges[0];
-			// 		const exchange = ccxt.binance({
-			// 			apiKey: account_info.api_key,
-			// 			apiSecret: account_info.api_secret
-			// 		});
-
-			// 		const trades = await exchange.fetchMyTrades(that.coin_pair)
-			// 		tvWidget.chart().createShape({time: Math.floor(new Date().valueOf() / 1000), price: 0.00242},
-			// 			{
-			// 				shape: "price_label",
-			// 				lock: true,
-			// 				disableSelection: true,
-			// 				disableSave: true,
-			// 				disableUndo: true,
-			// 				overrides: { color: "#00FF00" }
-			// 			}
-			// 		);
-			// 	});
-				
-			// }
-			
-			
-
-			const all_studies = tvWidget.chart().getAllStudies();
-			for(let i in all_studies) {
-
-				const study =  tvWidget.chart().getStudyById(all_studies[i].id);
-				// console.log(study);
-				// study.lock();
-			}
 		});
 	}
 

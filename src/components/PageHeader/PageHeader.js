@@ -32,7 +32,7 @@ class PageHeader extends Component {
         <>
         <button id="mobileMenuBtn" onClick={this.handleMobileToggle.bind(this)}></button>
         <span className="logo pull-left">
-					The Arweave Cyrpto TA Portal
+					The Arweave Cyrpto Technical Analysis Portal
 				</span>
         <UserMenu 
             wallet_address={this.props.wallet_address} 
