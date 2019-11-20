@@ -11,8 +11,14 @@ function Idea(props) {
     const created = new Date(props.created);
     const chartId = props.chartId;
 
+    let card_classes = "col-md-6 col-sm-6";
+
+    if(props.columns) {
+        card_classes = "col-md-4 col-sm-4";
+    }
+
     return (<>
-        <div className="col-md-6 col-sm-6">
+        <div className={card_classes}>
             <div className="box default">
                 <div className="box-title">
                     <h4><Link to={{ pathname:'charts', chartid:chartId}}>{props.name}</Link></h4>

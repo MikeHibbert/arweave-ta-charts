@@ -7,6 +7,7 @@ import Login from './components/auth/Login';
 import Logout from './components/auth/Logout';
 import HomePage from './containers/Home/HomePage';
 import ChartingPage from './containers/Charting/ChartingPage';
+import SearchPage from './containers/Search/SearchPage';
 import arweave from './arweave-config';
 import './App.css';
 import 'react-toastify/dist/ReactToastify.css';
@@ -151,7 +152,7 @@ class App extends Component {
                                                                     wallet_address={this.state.wallet_address} 
                                                                     {...this.props}
                                                                     jwk={this.state.jwk} />} />,
-,
+      <Route key='search' path="/search" exact component={() => <SearchPage wallet_address={this.state.wallet_address} jwk={this.state.jwk} />} />,
       <Route key='logout' path="/logout" exact component={() => <Logout onLogout={this.disconnectWallet.bind(this)} explandContentArea={() => this.explandContentArea} />} />
     ];
 

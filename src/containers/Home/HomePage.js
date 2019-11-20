@@ -1,10 +1,9 @@
 import React, { Component } from 'react';
-import { Link } from 'react-router-dom';
 import arweave from '../../arweave-config';
 import settings from '../../app-config';
 import Spinner from '../../components/Spinner/Spinner';
 import Idea from '../../components/Idea/Idea';
-import { stat } from 'fs';
+import getIdeas from '../../components/Idea/helpers';
 
 class HomePage extends Component {
 
@@ -55,7 +54,7 @@ class HomePage extends Component {
         }
     }
 
-    const ideas = await this.getIdeas(txids);
+    const ideas = await getIdeas(txids);
 
     const state = {};
 
@@ -66,36 +65,6 @@ class HomePage extends Component {
     } 
     
     this.setState(state);
-  }
-
-  async getIdeas(txids) {
-    const ideas = await Promise.all(txids.map(async txid => {
-        const transaction = await arweave.transactions.get(txid);
-        const tags = transaction.get('tags');
-        
-        const tx = {txid: txid};
-
-        for(let i in tags) {
-            const tag = tags[i];
-            
-            const name = tag.get('name', {decode: true, string: true}).replace('-', '_');
-            let value = tag.get('value', {decode: true, string: true});
-
-            if(name === "created") {
-                value = parseInt(value);
-            }
-
-            tx[name] = value;
-        }
-
-        if(tx.data_type === 'tv-chart-data') {
-            return tx;
-        } 
-        
-        return null;    
-    }));
-
-    return ideas.filter((idea) => { return idea !== null});
   }
 
   render() {

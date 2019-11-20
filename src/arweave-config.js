@@ -13,14 +13,7 @@ if(hostname === "localhost") {
     
 }
 
-arweave_config = {
-    host: 'arweave.net',// Hostname or IP address for a Arweave node
-    port: 443,           // Port, defaults to 1984
-    protocol: 'https',  // Network protocol http or https, defaults to http
-    timeout: 200000,     // Network request timeouts in milliseconds
-    logging: false     // Enable network request logging
-}
 
-const arweave = Arweave.init(arweave_config);
+const arweave = Arweave.init();
 
 export default arweave;

@@ -16,6 +16,7 @@ class ChartingPage extends Component {
     constructor(props) {
         super(props);
         this.setPendingCount.bind(this);
+        this.onSetExchangeAndCoinpair.bind(this);
     }
 
     componentDidMount() {
@@ -87,6 +88,12 @@ class ChartingPage extends Component {
         this.setState({pending_count: count});
     }
 
+    onSetExchangeAndCoinpair = function(exchange, coinpair) {
+        this.setState({exchange: exchange, coinpair: coinpair});
+        sessionStorage.setItem('coinpair', coinpair);
+        sessionStorage.setItem('exchange', exchange);
+    }
+
     render() {
         let exchanges = ccxt.exchanges.map((exchange_name) => {
             const ex = new ccxt[exchange_name];
@@ -104,7 +111,11 @@ class ChartingPage extends Component {
                 return <option key={coinpair.symbol} defaultValue={coinpair.id}>{coinpair.symbol}</option>;
             });
 
-            tradingview_chart = <TradingViewChart {...this.props} exchange={this.state.exchange} symbol={this.state.coinpair} />;
+            tradingview_chart = <TradingViewChart  
+                setExchangeAndCoinpair={(exchange, coinpair) => { this.onSetExchangeAndCoinpair(exchange, coinpair); }}
+                {...this.props} 
+                exchange={this.state.exchange} 
+                symbol={this.state.coinpair} />;
         }
 
         
