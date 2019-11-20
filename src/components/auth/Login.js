@@ -51,7 +51,7 @@ class Auth extends Component {
                     
                     
 					<fieldset>
-                        <section>Please select your <strong>AR wallet</strong> file to connect and start using <strong>The Decentralized Academic Publishing Portal</strong></section>
+                        <section>Please select your <strong>AR wallet</strong> file to connect and start using <strong>The Arweave Crypto Technical Analysis Portal</strong></section>
 						{form}
 
 					</fieldset>

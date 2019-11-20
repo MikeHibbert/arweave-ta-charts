@@ -410,7 +410,7 @@ class TradingViewChart extends React.PureComponent {
 		interval: "60",
 		containerId: 'tv_chart_container',
 		datafeedUrl: 'http://127.0.0.1:8000/api/tv',
-		libraryPath: '/charting_library/',
+		libraryPath: 'charting_library/',
 		chartsStorageUrl: backendHost + '/tv/chartstorage',
 		chartsStorageApiVersion: '1.1',
 		clientId: 'tradingview.com',
