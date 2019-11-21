@@ -153,7 +153,7 @@ class App extends Component {
                                                                     {...this.props}
                                                                     jwk={this.state.jwk} />} />,
       <Route key='search' path="/search" exact component={() => <SearchPage wallet_address={this.state.wallet_address} jwk={this.state.jwk} />} />,
-      <Route key='logout' path="/logout" exact component={() => <Logout onLogout={this.disconnectWallet.bind(this)} explandContentArea={() => this.explandContentArea} />} />
+      <Route key='logout' path="/logout" exact component={() => <Logout onLogout={this.disconnectWallet.bind(this)} addSuccessAlert={this.addSuccessAlert} explandContentArea={() => this.explandContentArea} />} />
     ];
 
     if(!this.state.isAuthenticated) {
